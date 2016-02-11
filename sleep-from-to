@@ -1,0 +1,27 @@
+#!/bin/bash
+
+USAGE='sleep-from-to <min> <max>
+Sleep for no less then min and no more then max seconds.
+'
+
+if [ -z "$1" ] || [ -z "$2" ] ; then
+	echo $'This command takes exactly 2 arguments\n\n'"$USAGE"
+	exit
+fi
+
+if [ "$1" -eq "$1" 2>/dev/null ] && [ "$2" -eq "$2" 2>/dev/null ] ; then
+	if [ "$1" -lt "$2" ] ; then
+		INTERVAL="$1"-"$2"
+	else 
+		INTERVAL="$2"-"$1"
+	fi
+
+	DURATION=$( shuf -i "$INTERVAL" -n 1 )
+
+	echo Sleeping for "$DURATION" seconds
+
+	sleep "$DURATION"
+else 
+	echo $'Both arguments must be integers\n\n'"$USAGE"
+	exit
+fi

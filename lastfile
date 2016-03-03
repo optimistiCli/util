@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Usage: lastfile <dir> [<skip=0>]
+# // TODO: Add proper help message
+# // TODO: Move skip to named option
+# // TODO: Use current dir by default
+
+BASEDIR="$1"
+SKIP="$2"
+# // TODO: Check if skip is integer
+
+# // TODO: Check if base dir exists
+# // TODO: Gracefully report empty dirs
+
+echo "$BASEDIR"$(ls -1t "$BASEDIR" | head -n $((SKIP+1)) | tail -n 1)

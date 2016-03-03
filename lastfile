@@ -1,12 +1,60 @@
 #!/bin/bash
 
-# Usage: lastfile <dir> [<skip=0>]
-# // TODO: Add proper help message
-# // TODO: Move skip to named option
-# // TODO: Use current dir by default
+read -r -d '' USAGE << "EOU"
+Usage: 
+  lastfile [-h] [-s <number>] [<dir>]
 
-BASEDIR="$1"
-SKIP="$2"
+Return the path to the latest file in the given directory, by default the 
+current directory is used.
+
+Options:
+  -h
+     Print this help message and exit
+  -s <N>
+     Skip N latest files and return the path to the N+1st latest file
+EOU
+
+function brag_and_exit {
+	if [ -n "$1" ] ; then
+		ERR_MESSAGE="$1"
+	else
+		ERR_MESSAGE='Something went wrong'
+	fi
+
+	echo 'Error: '"${ERR_MESSAGE}"$'\n\n'"${USAGE}"
+
+	exit 1
+}
+
+BASEDIR='./'
+SKIP='0'
+
+while getopts ":s:h" opt ; do
+	case $opt in
+		h)
+			echo "$USAGE"
+			exit
+			;;
+		s)
+			SKIP="$OPTARG"
+			;;
+	esac
+done
+
+if [ -n "$1" ] ; then
+	BASEDIR="$1"
+fi
+
+REALBASEDIR=$(realpath -m "$BASEDIR")
+
+if [ ! -d $REALBASEDIR ] ; then
+	brag_and_exit "\"$BASEDIR\" is not a directory"
+fi
+
+echo OK
+
+exit
+
 # // TODO: Check if skip is integer
 
 # // TODO: Check if base dir exists

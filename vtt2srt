@@ -1,6 +1,19 @@
 #!/usr/bin/perl
 
+use utf8;
 use strict;
+use open IO  => ":encoding(utf8)";
+
+our $usage = << 'EOU';
+VTT to SRT subtitle file convertor.
+
+Usage:
+  vtt2srt some.vtt > some.srt 
+  vtt2srt < some.vtt > some.srt 
+
+EOU
+
+print STDERR $usage and exit if $ARGV[0] =~ /^-/;
 
 my $count = 1;
 my $got_some_lines = 0;

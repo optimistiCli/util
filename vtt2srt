@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $count = 0;
+
+while (<>) {
+	chomp;
+
+	if (/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*$/) {
+		print "\n" if $count;
+		$count++;
+		printf "%i\n%02i:%02i:%02i,%03i --> %02i:%02i:%02i,%03i\n", $count, $1, $2, $3, $4, $5, $6, $7, $8;
+	} else {
+		next if /^\s*$/;
+		print "$_\n" if $count;
+	}
+}

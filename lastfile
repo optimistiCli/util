@@ -29,17 +29,28 @@ function brag_and_exit {
 BASEDIR='./'
 SKIP='0'
 
-while getopts ":s:h" opt ; do
-	case $opt in
-		h)
-			echo "$USAGE"
-			exit
-			;;
-		s)
-			SKIP="$OPTARG"
-			;;
-	esac
+LASTPARAM=''
+while [[ -n "$1" ]] ; do
+	if [[ $1 =~ ^-e$ ]] ; then
+		shift
+		SKIP="$1"
+	elif [[ $1 =~ ^-h$ ]] ; then
+		echo $USAGE
+		exit
+	elif [[ $1 =~ ^-[[:alnum:]]$ ]] ; then
+		USELESS="$1" # Skip unknown options
+	else
+		LASTPARAM="$1"
+	fi
+	shift
 done
+
+echo "L $LASTPARAM"
+exit
+
+if [[ ! $SKIP =~ ^[[:digit:]]+$ ]] ; then
+	brag_and_exit "Skip lines \"$SKIP\" is not a number"
+fi
 
 if [ -n "$1" ] ; then
 	BASEDIR="$1"
@@ -51,13 +62,13 @@ if [ ! -d $REALBASEDIR ] ; then
 	brag_and_exit "\"$BASEDIR\" is not a directory"
 fi
 
-echo OK
-
+LASTFILES=$(ls -1t "$REALBASEDIR" | head -n $((SKIP+1)))
+echo -n "$LASTFILES"
 exit
 
-# // TODO: Check if skip is integer
+LASTFILE=$(ls -1t "$REALBASEDIR" | head -n $((SKIP+1)) | tail -n 1)
+echo ')))'"$LASTFILE"'((('
 
-# // TODO: Check if base dir exists
 # // TODO: Gracefully report empty dirs
 
-echo "$BASEDIR"$(ls -1t "$BASEDIR" | head -n $((SKIP+1)) | tail -n 1)
+echo "${REALBASEDIR}${LASTFILE}"

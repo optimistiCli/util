@@ -2,7 +2,10 @@
 
 use utf8;
 use strict;
-use open IO  => ":encoding(utf8)";
+use open IO => ":encoding(utf8)";
+
+binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
 
 our $usage = << 'EOU';
 VTT to SRT subtitle file convertor.
@@ -13,31 +16,157 @@ Usage:
 
 EOU
 
+# Print out usage and exit if the user tries for command line options
 print STDERR $usage and exit if $ARGV[0] =~ /^-/;
 
 my $count = 1;
-my $got_some_lines = 0;
-my $buffer = '';
+my $old_subtitle = undef;
+my $current_subtitle = undef;
 
-sub releave_and_restart {
-	if ($got_some_lines) {
-		print "$buffer\n";
-		$count++;
+sub join_and_or_releave {
+	# Deal with old and current subtitles
+	if ($old_subtitle) {
+		# Check if current subtitle is just an update of the old one
+		if ($current_subtitle->is_update_of($old_subtitle)) {
+			# If current subtitle is an update on the old one merge them and store as old
+			$current_subtitle->merge_with_older($old_subtitle);
+			$old_subtitle = $current_subtitle;
+			$current_subtitle = undef;
+		} else {
+			# If current subtitle has nothing to do with the old one dump old subtitle 
+			# and promote current to old
+			print $old_subtitle->to_string($count++);
+			$old_subtitle = $current_subtitle;
+			$current_subtitle = undef;
+		}
+	} else {
+		# If there is no ols subtitle promote current one to old
+		$old_subtitle = $current_subtitle;
+		$current_subtitle = undef;
 	}
-	$buffer = shift;
-	$got_some_lines = 0;
 }
 
 while (<>) {
 	chomp;
 
 	if (/^(?:(\d+):)?(\d+):(\d+)\.(\d+)\s+-->\s+(?:(\d+):)?(\d+):(\d+)\.(\d+)\s*$/) {
-		releave_and_restart(sprintf "%i\n%02i:%02i:%02i,%03i --> %02i:%02i:%02i,%03i\n", $count, $1, $2, $3, $4, $5, $6, $7, $8);
+		# Init new subtitle
+		my $new_subtitle = Subtitle->new();
+		$new_subtitle->set_start($1, $2, $3, $4);
+		$new_subtitle->set_end($5, $6, $7, $8);
+
+		&join_and_or_releave;
+
+		# Save new subtitle as current
+		$current_subtitle = $new_subtitle;
 	} else {
-		next unless $buffer && /^\s*(.+?)\s*$/;
-		$buffer .= "$1\n";
-		$got_some_lines = 1;
+		next unless $current_subtitle && /^\s*(.+?)\s*$/;
+		$current_subtitle->add_line($1);
 	}
 }
 
-&releave_and_restart;
+# If there are some lines in current subtitle try merging it with the old one
+&join_and_or_releave if $current_subtitle && $current_subtitle->got_some_lines();
+
+# If there is still something left in the old subtitle dump it
+print $old_subtitle->to_string($count) if $old_subtitle && $old_subtitle->got_some_lines();
+
+
+### Subtitle ###
+
+{
+	package Subtitle;
+	
+	sub new {
+		my $classname = shift;
+		my $self = {
+			start	=> 0,
+			end		=> 0,
+			lines	=> [],
+		};
+		bless($self,$classname);
+		return $self;
+	}
+
+	sub ps_hmsm2int {
+		my ($hours, $minutes, $seconds, $milliseconds) = @_;
+		return $milliseconds + 1000 * ($seconds + 60 * ($minutes + 60 * $hours));
+	}
+
+	sub ps_int2hmsm {
+		$_ = shift;
+		my ($hours, $minutes, $seconds, $milliseconds);
+
+		$milliseconds = $_ % 1000;
+		$_ = int($_ / 1000);
+
+		$seconds = $_ % 60;
+		$_ = int($_ / 60);
+
+		$minutes = $_ % 60;
+		$_ = int($_ / 60);
+
+		$hours = $_;
+
+		return ($hours, $minutes, $seconds, $milliseconds);
+	}
+
+	sub p_get_one_line {
+		my $this = shift;
+		$_ = join ' ', @{$this->{lines}};
+		s/^\s*(\.+?)\s*/$1/;
+		s/\s+/ /g;
+		$_;
+	}
+
+	sub set_start {
+		my $this = shift;
+		$this->{start} = ps_hmsm2int(@_);
+		undef;
+	}
+
+	sub set_end {
+		my $this = shift;
+		$this->{end} = &ps_hmsm2int(@_);
+		undef;
+	}
+
+	sub add_line {
+		my $this = shift;
+		push $this->{lines}, shift;
+		undef;
+	}
+
+	# TODO: Check if they go one right after the other
+	sub is_update_of {
+		my $this = shift;
+		my $old_subtitle = shift;
+		return 0 == index $this->p_get_one_line(), $old_subtitle->p_get_one_line();
+	}
+
+	sub merge_with_older {
+		my $this = shift;
+		my $old_subtitle = shift;
+
+		$this->{start} = $old_subtitle->{start};
+		undef;
+	}
+
+	sub got_some_lines {
+		my $this = shift;
+		return 0 < scalar $this->{lines};
+	}
+
+	sub to_string {
+		my $this = shift;
+		my $count = shift;
+
+		my ($start_hours, $start_minutes, $start_seconds, $start_milliseconds) = ps_int2hmsm($this->{start});
+		my ($end_hours, $end_minutes, $end_seconds, $end_milliseconds) = ps_int2hmsm($this->{end});
+		return sprintf "%i\n%02i:%02i:%02i,%03i --> %02i:%02i:%02i,%03i\n%s\n\n", 
+			$count, 
+			$start_hours, $start_minutes, $start_seconds, $start_milliseconds,
+			$end_hours, $end_minutes, $end_seconds, $end_milliseconds,
+			join ("\n", @{$this->{lines}});
+	}
+}

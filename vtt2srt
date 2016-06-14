@@ -2,17 +2,29 @@
 
 use strict;
 
-my $count = 0;
+my $count = 1;
+my $got_some_lines = 0;
+my $buffer = '';
+
+sub releave_and_restart {
+	if ($got_some_lines) {
+		print "$buffer\n";
+		$count++;
+	}
+	$buffer = shift;
+	$got_some_lines = 0;
+}
 
 while (<>) {
 	chomp;
 
-	if (/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*$/) {
-		print "\n" if $count;
-		$count++;
-		printf "%i\n%02i:%02i:%02i,%03i --> %02i:%02i:%02i,%03i\n", $count, $1, $2, $3, $4, $5, $6, $7, $8;
+	if (/^(?:(\d+):)?(\d+):(\d+)\.(\d+)\s+-->\s+(?:(\d+):)?(\d+):(\d+)\.(\d+)\s*$/) {
+		releave_and_restart(sprintf "%i\n%02i:%02i:%02i,%03i --> %02i:%02i:%02i,%03i\n", $count, $1, $2, $3, $4, $5, $6, $7, $8);
 	} else {
-		next if /^\s*$/;
-		print "$_\n" if $count;
+		next unless $buffer && /^\s*(.+?)\s*$/;
+		$buffer .= "$1\n";
+		$got_some_lines = 1;
 	}
 }
+
+&releave_and_restart;
